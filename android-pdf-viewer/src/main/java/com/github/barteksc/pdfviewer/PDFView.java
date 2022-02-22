@@ -286,7 +286,6 @@ public class PDFView extends RelativeLayout {
      * @param page Page index.
      */
     public void jumpTo(int page, boolean withAnimation) {
-        return;
         if (pdfFile == null) {
             return;
         }
