@@ -22,17 +22,19 @@ import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
 import android.provider.OpenableColumns;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
-import android.support.v7.app.AppCompatActivity;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.Toast;
 
 import com.github.barteksc.pdfviewer.PDFView;
 import com.github.barteksc.pdfviewer.listener.OnLoadCompleteListener;
 import com.github.barteksc.pdfviewer.listener.OnPageChangeListener;
 import com.github.barteksc.pdfviewer.listener.OnPageErrorListener;
+import com.github.barteksc.pdfviewer.listener.OnTapListener;
 import com.github.barteksc.pdfviewer.scroll.DefaultScrollHandle;
 import com.github.barteksc.pdfviewer.util.FitPolicy;
 import com.shockwave.pdfium.PdfDocument;
@@ -90,6 +92,7 @@ public class PDFViewActivity extends AppCompatActivity implements OnPageChangeLi
     }
 
     void launchPicker() {
+//        pdfView.jumpTo(pdfView.getCurrentPage() + 1, true);
         Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("application/pdf");
         try {
@@ -117,10 +120,16 @@ public class PDFViewActivity extends AppCompatActivity implements OnPageChangeLi
         pdfView.fromAsset(SAMPLE_FILE)
                 .defaultPage(pageNumber)
                 .onPageChange(this)
+                .autoSpacing(true)
+                .swipeHorizontal(true)
+                .enableSwipe(true)
+                .fitEachPage(true)
+                .pageSnap(true)
+                .pageFling(true)
                 .enableAnnotationRendering(true)
                 .onLoad(this)
                 .scrollHandle(new DefaultScrollHandle(this))
-                .spacing(10) // in dp
+                .spacing(0) // in dp
                 .onPageError(this)
                 .pageFitPolicy(FitPolicy.BOTH)
                 .load();
