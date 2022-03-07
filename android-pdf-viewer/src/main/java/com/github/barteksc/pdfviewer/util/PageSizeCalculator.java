@@ -17,6 +17,9 @@ package com.github.barteksc.pdfviewer.util;
 
 import com.shockwave.pdfium.util.Size;
 import com.shockwave.pdfium.util.SizeF;
+import android.app.Activity;
+import android.util.Log;
+import android.content.pm.ActivityInfo;
 
 public class PageSizeCalculator {
 
@@ -40,7 +43,7 @@ public class PageSizeCalculator {
         calculateMaxPages();
     }
 
-    public SizeF calculate(Size pageSize) {
+    public SizeF calculate(Size pageSize, boolean showTwoPages, boolean isLandscape, int pageIndex) {
         if (pageSize.getWidth() <= 0 || pageSize.getHeight() <= 0) {
             return new SizeF(0, 0);
         }

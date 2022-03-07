@@ -176,6 +176,12 @@ public class PDFView extends RelativeLayout {
 
     private int defaultPage = 0;
 
+    private boolean dualPageMode = false;
+
+    private boolean hasCover = false;
+
+    private boolean isLandscapeOrientation = false;
+
     /** True if should scroll through pages vertically instead of horizontally */
     private boolean swipeVertical = true;
 
@@ -292,7 +298,6 @@ public class PDFView extends RelativeLayout {
 
         page = pdfFile.determineValidPageNumberFrom(page);
         float offset = page == 0 ? 0 : -pdfFile.getPageOffset(page, zoom);
-        offset += pdfFile.getPageSpacing(page, getZoom()) / 2f;
 
         if (swipeVertical) {
             if (withAnimation) {
@@ -301,10 +306,19 @@ public class PDFView extends RelativeLayout {
                 moveTo(currentXOffset, offset);
             }
         } else {
+            if(isLandscapeOrientation && dualPageMode){
+                if(hasCover){
+                    offset += page % 2 == 0 ? spacingPx + pdfFile.getPageLength(page -1, zoom) : spacingPx;
+                }else {
+                    offset += page % 2 != 0 ? spacingPx + pdfFile.getPageLength(page -1, zoom) : spacingPx;
+                }
+            }
             if (withAnimation) {
                 animationManager.startXAnimation(currentXOffset, offset);
+                performPageSnapAfterAnimation(offset);
             } else {
                 moveTo(offset, currentYOffset);
+                performPageSnapAfterAnimation(offset);
             }
         }
         showPage(page);
@@ -350,7 +364,7 @@ public class PDFView extends RelativeLayout {
     }
 
     /**
-     * @param progress   must be between 0 and 1
+     * @param progress must be between 0 and 1
      * @param moveHandle whether to move scroll handle
      * @see PDFView#getPositionOffset()
      */
@@ -358,13 +372,19 @@ public class PDFView extends RelativeLayout {
         if (swipeVertical) {
             moveTo(currentXOffset, (-pdfFile.getDocLen(zoom) + getHeight()) * progress, moveHandle);
         } else {
-            moveTo((-pdfFile.getDocLen(zoom) + getWidth()) * progress, currentYOffset, moveHandle);
+
+            if (isLandscapeOrientation && dualPageMode) {
+                int pageNum = getCurrentPage();
+                float pdfWidth = getPageSize(pageNum).getWidth();
+                moveTo(
+                        (-pdfFile.getDocLen(zoom) + getWidth() - pdfWidth / 2f) * progress,
+                        currentYOffset,
+                        moveHandle);
+            } else {
+                moveTo((-pdfFile.getDocLen(zoom) + getWidth()) * progress, currentYOffset, moveHandle);
+            }
         }
         loadPageByOffset();
-    }
-
-    public void setPositionOffset(float progress) {
-        setPositionOffset(progress, true);
     }
 
     public void stopFling() {
@@ -926,9 +946,7 @@ public class PDFView extends RelativeLayout {
         }
     }
 
-    /**
-     * Animate to the nearest snapping position for the current SnapPolicy
-     */
+    /** Animate to the nearest snapping position for the current SnapPolicy */
     public void performPageSnap() {
         if (!pageSnap || pdfFile == null || pdfFile.getPagesCount() == 0) {
             return;
@@ -943,31 +961,93 @@ public class PDFView extends RelativeLayout {
         if (swipeVertical) {
             animationManager.startYAnimation(currentYOffset, -offset);
         } else {
-            animationManager.startXAnimation(currentXOffset, -offset);
+            if (isLandscapeOrientation && dualPageMode) {
+                int pageNum = getCurrentPage();
+                float pdfWidth = getPageSize(pageNum).getWidth();
+                animationManager.startXAnimation(currentXOffset, -(offset + (pdfWidth / 2)));
+            } else {
+                animationManager.startXAnimation(currentXOffset, -offset);
+            }
         }
     }
 
-    /**
-     * Find the edge to snap to when showing the specified page
-     */
+    /** Animate to the nearest snapping position for the current SnapPolicy */
+    public void performPageSnapAfterAnimation(float newOffset) {
+        if (!pageSnap || pdfFile == null || pdfFile.getPagesCount() == 0) {
+            return;
+        }
+        int centerPage = findFocusPage(newOffset, currentYOffset);
+        SnapEdge edge = findSnapEdge(centerPage);
+        if (edge == SnapEdge.NONE) {
+            return;
+        }
+
+        float offset = snapOffsetForPage(centerPage, edge);
+        if (swipeVertical) {
+            animationManager.startYAnimation(currentYOffset, -offset);
+        } else {
+            if (isLandscapeOrientation && dualPageMode) {
+                int pageNum = getCurrentPage();
+                float pdfWidth = getPageSize(pageNum).getWidth();
+                animationManager.startXAnimation(currentXOffset, -(offset + (pdfWidth / 2)));
+            } else {
+                animationManager.startXAnimation(currentXOffset, -offset);
+            }
+        }
+    }
+
+    /** Find the edge to snap to when showing the specified page */
     SnapEdge findSnapEdge(int page) {
         if (!pageSnap || page < 0) {
             return SnapEdge.NONE;
         }
         float currentOffset = swipeVertical ? currentYOffset : currentXOffset;
-        float offset = -pdfFile.getPageOffset(page, zoom);
-        int length = swipeVertical ? getHeight() : getWidth();
-        float pageLength = pdfFile.getPageLength(page, zoom);
+        float offset;
+        float offsetMinus1;
+        int length;
+        float pageLength;
+        if(!isOnDualPageMode() && !isLandscapeOrientation){
+            Log.e("SNAP EDGE", "OK in portrait mode");
+            offset = -pdfFile.getPageOffset(page, zoom);
+            offsetMinus1 = -pdfFile.getPageOffset(page, zoom);
+            length = swipeVertical ? getHeight() : getWidth();
+            pageLength = pdfFile.getPageLength(page, zoom);
+        } else {
+            if(hasCover && page % 2 != 0){
+                pageLength =  pdfFile.getPageLength(page, zoom) + pdfFile.getPageLength(page+1, zoom);
+                offset = -pdfFile.getPageOffset(page+1, zoom);
+                offsetMinus1 = -pdfFile.getPageOffset(page, zoom);
+            }else {
+                pageLength =  pdfFile.getPageLength(page, zoom) + pdfFile.getPageLength(page+1, zoom);
+                offset = -pdfFile.getPageOffset(page, zoom);
+                offsetMinus1 = -pdfFile.getPageOffset(page-1, zoom);
+            }
+            length = swipeVertical ? getHeight() : getWidth();
+        }
 
         if (length >= pageLength) {
             return SnapEdge.CENTER;
-        } else if (currentOffset >= offset) {
-            return SnapEdge.START;
-        } else if (offset - pageLength > currentOffset - length) {
-            return SnapEdge.END;
-        } else {
-            return SnapEdge.NONE;
+        }else {
+            if (!isLandscapeOrientation) {
+                if (currentOffset >= offset) {
+                    return SnapEdge.START;
+
+                } else if (offset - pageLength >= currentOffset - length ) {
+                    return SnapEdge.END;
+
+                }
+            } else {
+                if (currentOffset >= offsetMinus1) {
+                    return SnapEdge.START;
+
+                } else if (offset - pageLength >= currentOffset - length - 0.8) {
+                    return SnapEdge.END;
+
+                }
+            }
+
         }
+        return SnapEdge.NONE;
     }
 
     /**
@@ -997,16 +1077,34 @@ public class PDFView extends RelativeLayout {
             return pdfFile.getPagesCount() - 1;
         }
         // else find page in center
-        float center = currOffset - length / 2f;
+        float center = isOnDualPageMode() ? currOffset - length / 3f : currOffset - length / 2f;
         return pdfFile.getPageAtOffset(-center, zoom);
     }
 
-    /**
-     * @return true if single page fills the entire screen in the scrolling direction
-     */
+    /** @return true if single page fills the entire screen in the scrolling direction */
     public boolean pageFillsScreen() {
-        float start = -pdfFile.getPageOffset(currentPage, zoom);
-        float end = start - pdfFile.getPageLength(currentPage, zoom);
+        float start;
+        float end;
+        if(!isOnLandscapeOrientation()) {
+            start = -pdfFile.getPageOffset(getCurrentPage(), getZoom());
+            end = start - pdfFile.getPageLength(getCurrentPage(), getZoom());
+        } else if(pdfHasCover()) {
+            start = getCurrentPage() % 2 != 0 ?
+                    -pdfFile.getPageOffset(getCurrentPage(), getZoom()) :
+                    -pdfFile.getPageOffset(getCurrentPage()-1, getZoom());
+            end = start - (getCurrentPage() % 2 != 0 ?
+                    pdfFile.getPageLength(getCurrentPage(), getZoom()) + pdfFile.getPageLength(getCurrentPage() + 1, getZoom()) :
+                    pdfFile.getPageLength(getCurrentPage(), getZoom()) + pdfFile.getPageLength(getCurrentPage() - 1, getZoom()));
+        }else {
+            start = getCurrentPage() % 2 == 0 ?
+                    -pdfFile.getPageOffset(getCurrentPage(), getZoom()) :
+                    -pdfFile.getPageOffset(getCurrentPage()-1, getZoom());
+            end = start - (getCurrentPage() % 2 == 0 ?
+                    pdfFile.getPageLength(getCurrentPage(), getZoom()) + pdfFile.getPageLength(getCurrentPage() + 1, getZoom()) :
+                    pdfFile.getPageLength(getCurrentPage(), getZoom()) + pdfFile.getPageLength(getCurrentPage() - 1, getZoom()));
+        }
+    /*float start = -pdfFile.getPageOffset(currentPage, zoom);
+    float end = start - pdfFile.getPageLength(currentPage, zoom);*/
         if (isSwipeVertical()) {
             return start > currentYOffset && end < currentYOffset - getHeight();
         } else {
@@ -1132,7 +1230,7 @@ public class PDFView extends RelativeLayout {
     }
 
     public void zoomWithAnimation(float scale) {
-        animationManager.startZoomAnimation(getWidth() / 2, getHeight() / 2, zoom, scale);
+        animationManager.startZoomAnimation(getWidth() / 2f, getHeight() / 2f, zoom, scale);
     }
 
     private void setScrollHandle(ScrollHandle scrollHandle) {
@@ -1179,6 +1277,26 @@ public class PDFView extends RelativeLayout {
 
     public boolean isBestQuality() {
         return bestQuality;
+    }
+
+    public boolean isOnDualPageMode() {
+        return dualPageMode;
+    }
+
+    public boolean pdfHasCover() {
+        return hasCover;
+    }
+
+    public boolean isOnLandscapeOrientation() { return isLandscapeOrientation; }
+
+    public void setLandscapeOrientation(boolean landscapeOrientation) {this.isLandscapeOrientation = landscapeOrientation; }
+
+    public void setDualPageMode(boolean dualPageMode) {
+        this.dualPageMode = dualPageMode;
+    }
+
+    public void setHasCover(boolean hasCover) {
+        this.hasCover = hasCover;
     }
 
     public boolean isSwipeVertical() {
@@ -1355,6 +1473,12 @@ public class PDFView extends RelativeLayout {
 
         private int defaultPage = 0;
 
+        private boolean landscapeOrientation = false;
+
+        private boolean dualPageMode = false;
+
+        private boolean hasCover = false;
+
         private boolean swipeHorizontal = false;
 
         private boolean annotationRendering = false;
@@ -1463,6 +1587,21 @@ public class PDFView extends RelativeLayout {
             return this;
         }
 
+        public Configurator landscapeOrientation(boolean landscapeOrientation) {
+            this.landscapeOrientation = landscapeOrientation;
+            return this;
+        }
+
+        public Configurator dualPageMode(boolean dualPageMode) {
+            this.dualPageMode = dualPageMode;
+            return this;
+        }
+
+        public Configurator displayAsBook(boolean hasCover) {
+            this.hasCover = hasCover;
+            return this;
+        }
+
         public Configurator swipeHorizontal(boolean swipeHorizontal) {
             this.swipeHorizontal = swipeHorizontal;
             return this;
@@ -1544,6 +1683,9 @@ public class PDFView extends RelativeLayout {
             PDFView.this.setNightMode(nightMode);
             PDFView.this.enableDoubletap(enableDoubletap);
             PDFView.this.setDefaultPage(defaultPage);
+            PDFView.this.setLandscapeOrientation(landscapeOrientation);
+            PDFView.this.setDualPageMode(dualPageMode);
+            PDFView.this.setHasCover(hasCover);
             PDFView.this.setSwipeVertical(!swipeHorizontal);
             PDFView.this.enableAnnotationRendering(annotationRendering);
             PDFView.this.setScrollHandle(scrollHandle);
