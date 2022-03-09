@@ -267,6 +267,7 @@ public class PDFView extends RelativeLayout {
         debugPaint.setStyle(Style.STROKE);
 
         pdfiumCore = new PdfiumCore(context);
+
         setWillNotDraw(false);
     }
 
@@ -286,6 +287,23 @@ public class PDFView extends RelativeLayout {
         decodingAsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
 
+    void detectLandscapePdf() {
+        if (pdfFile == null) {
+            return;
+        }
+
+        SizeF pSize = this.pdfFile.getPageSize(0);
+        boolean isLandscapeBook = pSize.getWidth() > pSize.getHeight();
+
+        if (isLandscapeBook) {
+            dualPageMode = false;
+            hasCover = false;
+            fitEachPage = true;
+            autoSpacing = true;
+            isLandscapeOrientation = false;
+        }
+    }
+
     /**
      * Go to the given page.
      *
@@ -296,6 +314,7 @@ public class PDFView extends RelativeLayout {
             return;
         }
 
+        detectLandscapePdf();
         page = pdfFile.determineValidPageNumberFrom(page);
         float offset = page == 0 ? 0 : -pdfFile.getPageOffset(page, zoom);
 
@@ -313,13 +332,13 @@ public class PDFView extends RelativeLayout {
                     offset += page % 2 != 0 ? spacingPx + pdfFile.getPageLength(page -1, zoom) : spacingPx;
                 }
             }
+
             if (withAnimation) {
                 animationManager.startXAnimation(currentXOffset, offset);
-                performPageSnapAfterAnimation(offset);
             } else {
                 moveTo(offset, currentYOffset);
-                performPageSnapAfterAnimation(offset);
             }
+            performPageSnapAfterAnimation(offset);
         }
         showPage(page);
     }
@@ -586,6 +605,7 @@ public class PDFView extends RelativeLayout {
         if (isInEditMode()) {
             return;
         }
+
         // As I said in this class javadoc, we can think of this canvas as a huge
         // strip on which we draw all the images. We actually only draw the rendered
         // parts, of course, but we render them in the place they belong in this huge

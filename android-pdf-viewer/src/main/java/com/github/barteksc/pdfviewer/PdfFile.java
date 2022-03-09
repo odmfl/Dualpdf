@@ -72,9 +72,9 @@ class PdfFile {
      * True if every page should fit separately according to the FitPolicy,
      * else the largest page fits and other pages scale relatively
      */
-    private final boolean fitEachPage;
+    private boolean fitEachPage;
 
-    private final boolean isLandscape;
+    private boolean isLandscape;
     /**
      * The pages the user want to display in order
      * (ex: 0, 2, 2, 8, 8, 1, 1, 1)
@@ -103,9 +103,15 @@ class PdfFile {
         } else {
             pagesCount = pdfiumCore.getPageCount(pdfDocument);
         }
+        boolean isLandscapeBook = false;
 
         for (int i = 0; i < pagesCount; i++) {
             Size pageSize = pdfiumCore.getPageSize(pdfDocument, documentPage(i));
+
+            if (i == 0 && pageSize.getWidth() > pageSize.getHeight()) {
+                isLandscapeBook = true;
+            }
+
             if (pageSize.getWidth() > originalMaxWidthPageSize.getWidth()) {
                 originalMaxWidthPageSize = pageSize;
             }
@@ -113,6 +119,13 @@ class PdfFile {
                 originalMaxHeightPageSize = pageSize;
             }
             originalPageSizes.add(pageSize);
+        }
+
+        if (isLandscapeBook) {
+            showCover = false;
+            showTwoPages = false;
+            autoSpacing = true;
+            fitEachPage = true;
         }
 
         recalculatePageSizes(viewSize);
