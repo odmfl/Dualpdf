@@ -16,6 +16,7 @@
 package com.github.barteksc.pdfviewer;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -296,11 +297,13 @@ public class PDFView extends RelativeLayout {
         boolean isLandscapeBook = pSize.getWidth() > pSize.getHeight();
 
         if (isLandscapeBook) {
+            int orientation = this.getResources().getConfiguration().orientation;
+
             dualPageMode = false;
             hasCover = false;
             fitEachPage = true;
             autoSpacing = true;
-            isLandscapeOrientation = false;
+            isLandscapeOrientation = orientation == Configuration.ORIENTATION_LANDSCAPE;
         }
     }
 
