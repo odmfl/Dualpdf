@@ -297,12 +297,14 @@ public class PDFView extends RelativeLayout {
         boolean isLandscapeBook = pSize.getWidth() > pSize.getHeight();
 
         if (isLandscapeBook) {
-            int orientation = this.getResources().getConfiguration().orientation;
 
             dualPageMode = false;
             hasCover = false;
             fitEachPage = true;
             autoSpacing = true;
+            isLandscapeOrientation = false;
+        } else {
+            int orientation = this.getResources().getConfiguration().orientation;
             isLandscapeOrientation = orientation == Configuration.ORIENTATION_LANDSCAPE;
         }
     }
