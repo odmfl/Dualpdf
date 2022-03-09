@@ -347,6 +347,16 @@ public class PDFView extends RelativeLayout {
         jumpTo(page, false);
     }
 
+    public void nextPage() {
+        int cur = getCurrentPage();
+        jumpTo(cur + 1, true);
+    }
+
+    public void prevPage() {
+        int cur = getCurrentPage();
+        jumpTo(cur - 1, true);
+    }
+
     void showPage(int pageNb) {
         if (recycled) {
             return;
