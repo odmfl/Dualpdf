@@ -297,15 +297,11 @@ public class PDFView extends RelativeLayout {
         boolean isLandscapeBook = pSize.getWidth() > pSize.getHeight();
 
         if (isLandscapeBook) {
-
             dualPageMode = false;
             hasCover = false;
             fitEachPage = true;
             autoSpacing = true;
             isLandscapeOrientation = false;
-        } else {
-            int orientation = this.getResources().getConfiguration().orientation;
-            isLandscapeOrientation = orientation == Configuration.ORIENTATION_LANDSCAPE;
         }
     }
 
@@ -1218,6 +1214,12 @@ public class PDFView extends RelativeLayout {
             return new SizeF(0, 0);
         }
         return pdfFile.getPageSize(pageIndex);
+    }
+
+    public int getCurrentOrientation() {
+        int orientation = this.getResources().getConfiguration().orientation;
+
+        return orientation == Configuration.ORIENTATION_PORTRAIT ? 1 : 2;
     }
 
     public int getCurrentPage() {
